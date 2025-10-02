@@ -1,0 +1,59 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+
+    <!-- Package Information -->
+    <PackageId>ClaudeAgentSdk</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>Gunpal Jain</Authors>
+    <Company>Gunpal Jain</Company>
+    <Product>Claude Agent SDK for .NET</Product>
+    <Title>Claude Agent SDK (Unofficial)</Title>
+
+    <!-- Description -->
+    <Description>Unofficial .NET SDK for Claude Code. Build production-ready AI applications with Claude's code generation and analysis capabilities. Supports streaming responses, multi-turn conversations, tool use, and comprehensive error handling. Complete port of the Python SDK with idiomatic C# async/await patterns.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/gunpal5/claude-agent-sdk-dotnet</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/gunpal5/claude-agent-sdk-dotnet</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>claude;ai;sdk;anthropic;agent;chatbot;llm;machine-learning;code-generation;async;streaming;unofficial</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
+
+    <!-- Release Notes -->
+    <PackageReleaseNotes>
+      v0.1.0 - Initial Release
+      - Simple query API with ClaudeAgent.QueryAsync()
+      - Interactive multi-turn conversations with ClaudeSdkClient
+      - Streaming response support
+      - Comprehensive tool support (Read, Write, Edit, Bash, etc.)
+      - Type-safe message and content block handling
+      - Full async/await support
+      - 117 comprehensive tests with 100% pass rate
+      - Complete documentation and examples
+    </PackageReleaseNotes>
+
+    <!-- Build Settings -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- Repository and Copyright -->
+    <Copyright>Copyright © Gunpal Jain 2025</Copyright>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="9.0.0" />
+  </ItemGroup>
+
+</Project>
