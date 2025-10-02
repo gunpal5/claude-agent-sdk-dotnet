@@ -5,7 +5,7 @@ namespace ClaudeAgentSdk.Tests;
 
 public class ClientIntegrationTests
 {
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public async Task ClaudeSdkClient_Constructor_ShouldInitialize()
     {
         // Act
@@ -16,7 +16,7 @@ public class ClientIntegrationTests
         await client.DisposeAsync();
     }
 
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public async Task ClaudeSdkClient_WithOptions_ShouldInitialize()
     {
         // Arrange
@@ -49,7 +49,7 @@ public class ClientIntegrationTests
         await client.DisposeAsync();
     }
 
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public async Task ClaudeSdkClient_QueryBeforeConnect_ShouldThrow()
     {
         // Arrange
@@ -62,7 +62,7 @@ public class ClientIntegrationTests
         await client.DisposeAsync();
     }
 
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public async Task ClaudeSdkClient_ReceiveMessagesBeforeConnect_ShouldThrow()
     {
         // Arrange

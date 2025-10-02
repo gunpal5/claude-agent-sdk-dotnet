@@ -7,7 +7,7 @@ namespace ClaudeAgentSdk.Tests;
 
 public class TransportTests
 {
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public void SubprocessCliTransport_Constructor_ShouldInitializeCorrectly()
     {
         // Arrange & Act
@@ -19,7 +19,7 @@ public class TransportTests
         transport.IsReady.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public void SubprocessCliTransport_IsReady_ShouldBeFalseInitially()
     {
         // Arrange
@@ -30,7 +30,7 @@ public class TransportTests
         transport.IsReady.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public async Task SubprocessCliTransport_WriteAsync_WhenNotReady_ShouldThrow()
     {
         // Arrange
@@ -42,7 +42,7 @@ public class TransportTests
             async () => await transport.WriteAsync("test data"));
     }
 
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public async Task SubprocessCliTransport_ReadMessagesAsync_WhenNotConnected_ShouldThrow()
     {
         // Arrange
@@ -59,7 +59,7 @@ public class TransportTests
         });
     }
 
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public async Task SubprocessCliTransport_DisposeAsync_ShouldCleanupResources()
     {
         // Arrange
@@ -73,7 +73,7 @@ public class TransportTests
         transport.IsReady.Should().BeFalse();
     }
 
-    [Fact]
+    [Fact(Skip = "Requires Claude CLI")]
     public async Task SubprocessCliTransport_DisposeAsync_MultipleTimesDoesNotThrow()
     {
         // Arrange
