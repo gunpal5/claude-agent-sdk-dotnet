@@ -28,6 +28,10 @@ public class SubprocessCliTransport : ITransport
     private CancellationTokenSource? _stderrCts;
     private bool _ready;
     private Exception? _exitError;
+    private McpStdioBridge? _mcpBridge;
+    private Task? _mcpBridgeTask;
+    private CancellationTokenSource? _mcpBridgeCts;
+    private readonly List<Process> _bridgeProcesses = new();
 
     public bool IsReady => _ready;
 
@@ -166,11 +170,59 @@ public class SubprocessCliTransport : ITransport
             if (_options.McpServers is Dictionary<string, object> mcpDict)
             {
                 var serversForCli = new Dictionary<string, object>();
+
+                // Start HTTP bridge for SDK MCP servers
+                if (_mcpBridge == null && mcpDict.Values.OfType<McpSdkServerConfig>().Any())
+                {
+                    _mcpBridge = new McpStdioBridge();
+                    _mcpBridgeCts = new CancellationTokenSource();
+                    _mcpBridgeTask = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await _mcpBridge.StartHttpServerAsync(_mcpBridgeCts.Token);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[DEBUG] MCP bridge error: {ex.Message}");
+                        }
+                    });
+
+                    // Wait for the server to be ready before continuing
+                    _mcpBridge.WaitForServerReadyAsync().Wait();
+                }
+
                 foreach (var (name, config) in mcpDict)
                 {
                     if (config is McpSdkServerConfig sdkConfig)
                     {
-                        serversForCli[name] = new { type = "sdk", name = sdkConfig.Name };
+                        try
+                        {
+                            // SDK MCP servers require a stdio bridge
+                            var bridgeInfo = $"[DEBUG] Creating stdio bridge for SDK MCP server: {name}";
+                            Console.WriteLine(bridgeInfo);
+                            try { File.AppendAllText("claude_sdk_debug.log", bridgeInfo + Environment.NewLine); } catch { }
+
+                            _mcpBridge!.RegisterServer(name, sdkConfig.Instance);
+
+                            // Create Node.js bridge script
+                            var (nodeCmd, nodeArgs, scriptPath) = McpStdioBridge.CreateNodeBridgeScript(name, _mcpBridge.Port);
+
+                            // Register as stdio MCP server for Claude CLI
+                            // Create anonymous object with lowercase properties matching MCP schema
+                            serversForCli[name] = new Dictionary<string, object>
+                            {
+                                ["type"] = "stdio",
+                                ["command"] = nodeCmd,
+                                ["args"] = nodeArgs
+                            };
+
+                            Console.WriteLine($"[DEBUG] Registered bridge for {name} on port {_mcpBridge.Port}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[DEBUG] Error setting up SDK MCP server bridge {name}: {ex.Message}");
+                        }
                     }
                     else
                     {
@@ -251,6 +303,11 @@ public class SubprocessCliTransport : ITransport
 
         var args = BuildCommand();
 
+        // Debug: Log the command being executed
+        var debugInfo = $"[DEBUG] Executing: {_cliPath} {string.Join(" ", args.Select(a => a.Contains(" ") ? $"\"{a}\"" : a))}";
+        Console.WriteLine(debugInfo);
+        try { File.AppendAllText("claude_sdk_debug.log", debugInfo + Environment.NewLine); } catch { }
+
         try
         {
             var startInfo = new ProcessStartInfo
@@ -258,7 +315,7 @@ public class SubprocessCliTransport : ITransport
                 FileName = _cliPath,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
-                RedirectStandardError = _options.Stderr != null || _options.ExtraArgs.ContainsKey("debug-to-stderr"),
+                RedirectStandardError = true, // Always redirect stderr for debugging
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WorkingDirectory = _cwd ?? Environment.CurrentDirectory
@@ -284,6 +341,9 @@ public class SubprocessCliTransport : ITransport
             if (_process == null)
                 throw new CliConnectionException("Failed to start Claude Code process");
 
+            var pidInfo = $"[DEBUG] Process started with PID: {_process.Id}";
+            Console.WriteLine(pidInfo);
+            try { File.AppendAllText("claude_sdk_debug.log", pidInfo + Environment.NewLine); } catch { }
             _stdoutReader = _process.StandardOutput;
 
             if (_isStreaming)
@@ -334,6 +394,10 @@ public class SubprocessCliTransport : ITransport
 
                 if (!string.IsNullOrWhiteSpace(line))
                 {
+                    // Always log to console and file for debugging
+                    var stderrInfo = $"[CLI STDERR] {line}";
+                    Console.WriteLine(stderrInfo);
+                    try { File.AppendAllText("claude_sdk_debug.log", stderrInfo + Environment.NewLine); } catch { }
                     _options.Stderr?.Invoke(line);
                 }
             }
@@ -447,6 +511,9 @@ public class SubprocessCliTransport : ITransport
 
         if (_process?.ExitCode != null && _process.ExitCode != 0)
         {
+            var exitInfo = $"[DEBUG] Process exited with code: {_process.ExitCode}, HasExited: {_process.HasExited}";
+            Console.WriteLine(exitInfo);
+            try { File.AppendAllText("claude_sdk_debug.log", exitInfo + Environment.NewLine); } catch { }
             _exitError = new ProcessException(
                 $"Command failed with exit code {_process.ExitCode}",
                 _process.ExitCode,
@@ -458,6 +525,24 @@ public class SubprocessCliTransport : ITransport
     public async ValueTask DisposeAsync()
     {
         _ready = false;
+
+        // Stop MCP bridge
+        if (_mcpBridgeCts != null)
+        {
+            try
+            {
+                await _mcpBridgeCts.CancelAsync();
+                _mcpBridge?.Stop();
+                if (_mcpBridgeTask != null)
+                {
+                    await _mcpBridgeTask;
+                }
+            }
+            catch
+            {
+                // Ignore
+            }
+        }
 
         // Cancel and wait for stderr task
         if (_stderrCts != null)

@@ -20,7 +20,8 @@ public static class MessageParser
             "assistant" => ParseAssistantMessage(data),
             "system" => ParseSystemMessage(data),
             "result" => ParseResultMessage(data),
-            "stream" => ParseStreamEvent(data),
+            "stream" or "stream_event" => ParseStreamEvent(data),
+            "control_request" => ParseControlRequest(data),
             _ => throw new ArgumentException($"Unknown message type: {type}")
         };
     }
@@ -98,6 +99,21 @@ public static class MessageParser
             Event = data.TryGetValue("event", out var eventObj) && eventObj is JsonElement eventElement
                 ? JsonSerializer.Deserialize<Dictionary<string, object>>(eventElement.GetRawText()) ?? new()
                 : new(),
+            ParentToolUseId = GetStringOrNull(data, "parent_tool_use_id")
+        };
+    }
+
+    private static ControlRequest ParseControlRequest(Dictionary<string, object> data)
+    {
+        // Try to find control_type, but it might not always be present
+        var controlType = GetStringOrNull(data, "control_type") ?? "unknown";
+
+        return new ControlRequest
+        {
+            ControlType = controlType,
+            Data = data.TryGetValue("data", out var dataObj) && dataObj is JsonElement dataElement
+                ? JsonSerializer.Deserialize<Dictionary<string, object>>(dataElement.GetRawText())
+                : null,
             ParentToolUseId = GetStringOrNull(data, "parent_tool_use_id")
         };
     }

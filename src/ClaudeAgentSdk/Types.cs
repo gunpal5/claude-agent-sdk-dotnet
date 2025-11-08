@@ -284,6 +284,16 @@ public class StreamEvent : Message
 }
 
 /// <summary>
+/// Control request message from Claude Code for MCP tool operations.
+/// </summary>
+public class ControlRequest : Message
+{
+    public required string ControlType { get; set; }
+    public Dictionary<string, object>? Data { get; set; }
+    public string? ParentToolUseId { get; set; }
+}
+
+/// <summary>
 /// Query options for Claude SDK.
 /// </summary>
 public class ClaudeAgentOptions
