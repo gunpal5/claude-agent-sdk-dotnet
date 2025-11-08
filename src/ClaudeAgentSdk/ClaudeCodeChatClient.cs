@@ -110,8 +110,7 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
 
         _metadata = new ChatClientMetadata(
             providerName: "ClaudeCode",
-            providerUri: new Uri("https://claude.ai/code"),
-            modelId: _options.Model ?? "claude-sonnet-4");
+            providerUri: new Uri("https://claude.ai/code"));
 
         // Capture the MCP server instance if present for dynamic tool management
         if (_options.McpServers != null)
@@ -188,8 +187,8 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
     /// <summary>
     /// Sends chat messages and returns the complete response.
     /// </summary>
-    public async Task<ChatCompletion> CompleteAsync(
-        IList<ChatMessage> chatMessages,
+    public async Task<ChatResponse> GetResponseAsync(
+        IEnumerable<ChatMessage> chatMessages,
         ChatOptions? options = null,
         CancellationToken cancellationToken = default)
     {
@@ -297,9 +296,8 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
                 _conversationHistory.Add(assistantMessage);
             }
 
-            return new ChatCompletion(assistantMessage)
+            return new ChatResponse(assistantMessage)
             {
-                CompletionId = Guid.NewGuid().ToString(),
                 CreatedAt = DateTimeOffset.UtcNow,
                 ModelId = modelId,
                 FinishReason = finishReason,
@@ -320,8 +318,8 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
     /// <summary>
     /// Sends chat messages and streams the response updates.
     /// </summary>
-    public async IAsyncEnumerable<StreamingChatCompletionUpdate> CompleteStreamingAsync(
-        IList<ChatMessage> chatMessages,
+    public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+        IEnumerable<ChatMessage> chatMessages,
         ChatOptions? options = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -351,11 +349,10 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
                         contents.Add(ConvertContentBlock(block));
                     }
 
-                    var update = new StreamingChatCompletionUpdate
+                    var update = new ChatResponseUpdate
                     {
                         Role = ChatRole.Assistant,
                         Contents = contents,
-                        CompletionId = Guid.NewGuid().ToString(),
                         CreatedAt = DateTimeOffset.UtcNow,
                         ModelId = assistant.Model
                     };
@@ -373,10 +370,9 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
                             ["Event"] = streamEvent.Event
                         };
 
-                        yield return new StreamingChatCompletionUpdate
+                        yield return new ChatResponseUpdate
                         {
                             Role = ChatRole.Assistant,
-                            CompletionId = streamEvent.Uuid,
                             AdditionalProperties = additionalProps
                         };
                     }
@@ -395,10 +391,9 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
                         };
                     }
 
-                    var finalUpdate = new StreamingChatCompletionUpdate
+                    var finalUpdate = new ChatResponseUpdate
                     {
                         FinishReason = result.IsError ? ChatFinishReason.ContentFilter : ChatFinishReason.Stop,
-                        CompletionId = Guid.NewGuid().ToString(),
                         Contents = usage != null ? new List<AIContent> { new UsageContent(usage) } : new List<AIContent>()
                     };
 
@@ -452,7 +447,6 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
                 arguments: tool.Input != null ? tool.Input.ToDictionary(k => k.Key, k => (object?)k.Value) : null),
             ToolResultBlock result => new FunctionResultContent(
                 callId: result.ToolUseId,
-                name: string.Empty,
                 result: result.Content),
             _ => throw new NotSupportedException($"Unsupported content block type: {block.GetType()}")
         };

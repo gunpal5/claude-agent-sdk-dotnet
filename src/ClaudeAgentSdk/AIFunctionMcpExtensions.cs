@@ -65,7 +65,7 @@ public static class AIFunctionMcpExtensions
             // When disabling built-in tools, explicitly allow ONLY the MCP tools
             // Tool naming convention from Python SDK: mcp__<server_name>__<tool_name>
             options.AllowedTools = functionList
-                .Select(f => $"mcp__{serverName}__{f.Metadata.Name}")
+                .Select(f => $"mcp__{serverName}__{f.Name}")
                 .ToList();
 
             // Clear any disallowed tools to ensure MCP tools work

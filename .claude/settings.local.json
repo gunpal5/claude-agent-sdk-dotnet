@@ -6,7 +6,11 @@
       "Bash(dotnet build:*)",
       "Bash(dotnet test:*)",
       "Bash(cat:*)",
-      "Bash(dotnet remove:*)"
+      "Bash(dotnet remove:*)",
+      "Bash(dotnet new:*)",
+      "Bash(dotnet add:*)",
+      "Bash(echo:*)",
+      "Bash(dotnet run:*)"
     ],
     "deny": [],
     "ask": []

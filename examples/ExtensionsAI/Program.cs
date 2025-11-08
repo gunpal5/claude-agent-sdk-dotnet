@@ -63,10 +63,10 @@ static async Task BasicChatExample()
     Console.WriteLine("Sending: What is 2+2? Explain your reasoning.");
     Console.WriteLine();
 
-    var response = await client.CompleteAsync(messages);
+    var response = await client.GetResponseAsync(messages);
 
     Console.WriteLine($"Model: {response.ModelId}");
-    Console.WriteLine($"Response: {response.Message.Text}");
+    Console.WriteLine($"Response: {response.Text}");
     Console.WriteLine($"Tokens: {response.Usage?.TotalTokenCount ?? 0}");
     Console.WriteLine($"Finish Reason: {response.FinishReason}");
 }
@@ -124,11 +124,11 @@ static async Task CustomToolsExample()
     Console.WriteLine("Sending: What's the weather in Seattle? Also calculate 15 * 23.");
     Console.WriteLine();
 
-    var response = await client.CompleteAsync(messages);
+    var response = await client.GetResponseAsync(messages);
 
-    Console.WriteLine($"Response: {response.Message.Text}");
+    Console.WriteLine($"Response: {response.Text}");
     Console.WriteLine();
-    Console.WriteLine($"Tools Available: {string.Join(", ", aiFunctions.Select(f => f.Metadata.Name))}");
+    Console.WriteLine($"Tools Available: {string.Join(", ", aiFunctions.Select(f => f.Name))}");
 }
 
 // Example 3: App-Managed History
@@ -149,18 +149,18 @@ static async Task AppManagedHistoryExample()
     };
 
     Console.WriteLine("Turn 1: My name is Alice and I love pizza.");
-    var response1 = await client.CompleteAsync(messages);
-    Console.WriteLine($"Claude: {response1.Message.Text}");
+    var response1 = await client.GetResponseAsync(messages);
+    Console.WriteLine($"Claude: {response1.Text}");
     Console.WriteLine();
 
     // Add response to history
-    messages.Add(response1.Message);
+    messages.AddRange(response1.Messages);
 
     // Second turn
     messages.Add(new ChatMessage(ChatRole.User, "What's my name and favorite food?"));
     Console.WriteLine("Turn 2: What's my name and favorite food?");
-    var response2 = await client.CompleteAsync(messages);
-    Console.WriteLine($"Claude: {response2.Message.Text}");
+    var response2 = await client.GetResponseAsync(messages);
+    Console.WriteLine($"Claude: {response2.Text}");
     Console.WriteLine();
 
     // Show conversation history
@@ -193,8 +193,8 @@ static async Task ClaudeManagedHistoryExample()
     };
 
     Console.WriteLine("Turn 1: Remember this: My favorite number is 42.");
-    var response1 = await client.CompleteAsync(messages1);
-    Console.WriteLine($"Claude: {response1.Message.Text}");
+    var response1 = await client.GetResponseAsync(messages1);
+    Console.WriteLine($"Claude: {response1.Text}");
     Console.WriteLine();
 
     // Second message - Claude remembers context
@@ -204,8 +204,8 @@ static async Task ClaudeManagedHistoryExample()
     };
 
     Console.WriteLine("Turn 2: What's my favorite number?");
-    var response2 = await client.CompleteAsync(messages2);
-    Console.WriteLine($"Claude: {response2.Message.Text}");
+    var response2 = await client.GetResponseAsync(messages2);
+    Console.WriteLine($"Claude: {response2.Text}");
     Console.WriteLine();
 
     Console.WriteLine("Note: Claude Code managed the conversation history internally.");
@@ -231,7 +231,7 @@ static async Task StreamingExample()
     Console.WriteLine("\nStreaming response:");
     Console.WriteLine("─────────────────────");
 
-    await foreach (var update in client.CompleteStreamingAsync(messages))
+    await foreach (var update in client.GetStreamingResponseAsync(messages))
     {
         if (update.Role == ChatRole.Assistant)
         {

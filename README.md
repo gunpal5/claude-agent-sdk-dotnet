@@ -336,7 +336,7 @@ catch (CliNotFoundException ex)
 }
 catch (CliConnectionException ex)
 {
-    Console.WriteLine($"Connection error: {ex.Message}");
+    Console.WriteLine($"Connection error: {ex}");
 }
 catch (ProcessException ex)
 {

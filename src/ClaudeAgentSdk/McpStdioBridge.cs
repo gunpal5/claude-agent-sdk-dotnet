@@ -84,7 +84,7 @@ internal class McpStdioBridge
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[DEBUG] HTTP listener error: {ex.Message}");
+                Console.WriteLine($"[DEBUG] HTTP listener error: {ex}");
             }
         }
     }
@@ -178,7 +178,7 @@ internal class McpStdioBridge
         }
         catch (Exception ex)
         {
-            logMsg = $"[DEBUG] Error handling HTTP request: {ex.Message}\n{ex.StackTrace}";
+            logMsg = $"[DEBUG] Error handling HTTP request: {ex}\n{ex.StackTrace}";
             Console.WriteLine(logMsg);
             try { File.AppendAllText("claude_sdk_debug.log", logMsg + Environment.NewLine); } catch { }
 

@@ -125,7 +125,7 @@ class Program
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"❌ Error: {ex.Message}");
+            Console.WriteLine($"❌ Error: {ex}");
             Console.ResetColor();
         }
     }
@@ -240,7 +240,7 @@ class Program
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"❌ Error: {ex.Message}");
+            Console.WriteLine($"❌ Error: {ex}");
             Console.ResetColor();
         }
     }
@@ -426,7 +426,7 @@ class Program
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"❌ Error: {ex.Message}");
+            Console.WriteLine($"❌ Error: {ex}");
             Console.ResetColor();
         }
     }
@@ -512,7 +512,7 @@ class Program
         catch (Exception ex)
         {
             Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"❌ Error: {ex.Message}");
+            Console.WriteLine($"❌ Error: {ex}");
             Console.ResetColor();
         }
     }

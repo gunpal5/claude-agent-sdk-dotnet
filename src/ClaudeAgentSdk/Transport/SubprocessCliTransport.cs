@@ -184,7 +184,7 @@ public class SubprocessCliTransport : ITransport
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[DEBUG] MCP bridge error: {ex.Message}");
+                            Console.WriteLine($"[DEBUG] MCP bridge error: {ex}");
                         }
                     });
 
@@ -221,7 +221,7 @@ public class SubprocessCliTransport : ITransport
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"[DEBUG] Error setting up SDK MCP server bridge {name}: {ex.Message}");
+                            Console.WriteLine($"[DEBUG] Error setting up SDK MCP server bridge {name}: {ex}");
                         }
                     }
                     else
@@ -374,7 +374,7 @@ public class SubprocessCliTransport : ITransport
                 throw _exitError;
             }
 
-            _exitError = new CliConnectionException($"Failed to start Claude Code: {ex.Message}", ex);
+            _exitError = new CliConnectionException($"Failed to start Claude Code: {ex}", ex);
             throw _exitError;
         }
     }
@@ -421,7 +421,7 @@ public class SubprocessCliTransport : ITransport
             throw new CliConnectionException($"Cannot write to terminated process (exit code: {_process.ExitCode})");
 
         if (_exitError != null)
-            throw new CliConnectionException($"Cannot write to process that exited with error: {_exitError.Message}", _exitError);
+            throw new CliConnectionException($"Cannot write to process that exited with error: {_exitError}", _exitError);
 
         try
         {
@@ -431,7 +431,7 @@ public class SubprocessCliTransport : ITransport
         catch (Exception ex)
         {
             _ready = false;
-            _exitError = new CliConnectionException($"Failed to write to process stdin: {ex.Message}", ex);
+            _exitError = new CliConnectionException($"Failed to write to process stdin: {ex}", ex);
             throw _exitError;
         }
     }

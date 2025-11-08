@@ -36,95 +36,51 @@ public class AIFunctionMcpConverter
         if (aiFunction == null)
             throw new ArgumentNullException(nameof(aiFunction));
 
-        // Get the parameter schema from the AIFunction metadata
-        var parameterSchema = aiFunction.Metadata.Parameters;
+        // Get the parameter schema from the AIFunction JsonSchema
+        var inputSchema = ParseJsonSchemaToMcpInputSchema(aiFunction.JsonSchema);
 
         return new McpToolSchema
         {
-            Name = aiFunction.Metadata.Name,
-            Description = aiFunction.Metadata.Description ?? string.Empty,
-            InputSchema = new McpInputSchema
-            {
-                Type = "object",
-                Properties = ConvertParameters(parameterSchema),
-                Required = ExtractRequiredFromParameters(parameterSchema)
-            }
+            Name = aiFunction.Name,
+            Description = aiFunction.Description ?? string.Empty,
+            InputSchema = inputSchema
         };
     }
 
     /// <summary>
-    /// Converts AIFunction parameters to MCP properties format.
+    /// Parses an AIFunction JsonSchema into MCP InputSchema format.
     /// </summary>
-    private static Dictionary<string, JsonNode> ConvertParameters(IEnumerable<AIFunctionParameterMetadata>? parameters)
+    private static McpInputSchema ParseJsonSchemaToMcpInputSchema(JsonElement jsonSchema)
     {
-        var properties = new Dictionary<string, JsonNode>();
-
-        if (parameters == null)
-            return properties;
-
-        foreach (var param in parameters)
+        var inputSchema = new McpInputSchema
         {
-            var propNode = new JsonObject
-            {
-                ["type"] = MapDotNetTypeToJsonSchemaType(param.ParameterType)
-            };
-
-            if (!string.IsNullOrEmpty(param.Description))
-            {
-                propNode["description"] = param.Description;
-            }
-
-            properties[param.Name] = propNode;
-        }
-
-        return properties;
-    }
-
-    /// <summary>
-    /// Maps .NET types to JSON Schema draft 2020-12 type names.
-    /// </summary>
-    private static string MapDotNetTypeToJsonSchemaType(Type? type)
-    {
-        if (type == null)
-            return "string";
-
-        // Handle nullable types
-        var underlyingType = Nullable.GetUnderlyingType(type) ?? type;
-
-        return Type.GetTypeCode(underlyingType) switch
-        {
-            TypeCode.Boolean => "boolean",
-            TypeCode.Byte or TypeCode.SByte or TypeCode.Int16 or TypeCode.UInt16 or
-            TypeCode.Int32 or TypeCode.UInt32 or TypeCode.Int64 or TypeCode.UInt64 => "integer",
-            TypeCode.Single or TypeCode.Double or TypeCode.Decimal => "number",
-            TypeCode.String or TypeCode.Char => "string",
-            _ => underlyingType.IsArray || underlyingType.IsAssignableTo(typeof(System.Collections.IEnumerable)) && underlyingType != typeof(string)
-                ? "array"
-                : underlyingType.IsClass || underlyingType.IsInterface
-                ? "object"
-                : "string"
+            Type = "object",
+            Properties = new Dictionary<string, JsonNode>(),
+            Required = new List<string>()
         };
-    }
 
-    /// <summary>
-    /// Extracts required parameter names.
-    /// </summary>
-    private static List<string> ExtractRequiredFromParameters(IEnumerable<AIFunctionParameterMetadata>? parameters)
-    {
-        var required = new List<string>();
-
-        if (parameters == null)
-            return required;
-
-        foreach (var param in parameters)
+        // Parse properties from JsonSchema
+        if (jsonSchema.TryGetProperty("properties", out var properties))
         {
-            if (param.IsRequired)
+            foreach (var property in properties.EnumerateObject())
             {
-                required.Add(param.Name);
+                inputSchema.Properties[property.Name] = JsonNode.Parse(property.Value.GetRawText());
             }
         }
 
-        return required;
+        // Parse required array from JsonSchema
+        if (jsonSchema.TryGetProperty("required", out var required) && required.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in required.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String)
+                {
+                    inputSchema.Required.Add(item.GetString()!);
+                }
+            }
+        }
+
+        return inputSchema;
     }
 
     /// <summary>
@@ -204,7 +160,7 @@ public class DynamicAIFunctionMcpServer
         if (aiFunctions == null)
             throw new ArgumentNullException(nameof(aiFunctions));
 
-        _toolsByName = aiFunctions.ToDictionary(f => f.Metadata.Name, f => f);
+        _toolsByName = aiFunctions.ToDictionary(f => f.Name, f => f);
     }
 
     /// <summary>
@@ -218,7 +174,7 @@ public class DynamicAIFunctionMcpServer
 
         lock (_lock)
         {
-            _toolsByName[aiFunction.Metadata.Name] = aiFunction;
+            _toolsByName[aiFunction.Name] = aiFunction;
         }
     }
 
@@ -235,7 +191,7 @@ public class DynamicAIFunctionMcpServer
         {
             foreach (var func in aiFunctions)
             {
-                _toolsByName[func.Metadata.Name] = func;
+                _toolsByName[func.Name] = func;
             }
         }
     }
@@ -317,15 +273,17 @@ public class DynamicAIFunctionMcpServer
         }
 
         // Convert JsonElement arguments to AIFunctionArguments
-        var aiFunctionArgs = new Dictionary<string, object?>();
+        var argsDict = new Dictionary<string, object?>();
 
         if (arguments.ValueKind == JsonValueKind.Object)
         {
             foreach (var prop in arguments.EnumerateObject())
             {
-                aiFunctionArgs[prop.Name] = DeserializeJsonElement(prop.Value);
+                argsDict[prop.Name] = DeserializeJsonElement(prop.Value);
             }
         }
+
+        var aiFunctionArgs = new AIFunctionArguments(argsDict);
 
         // Invoke the AIFunction
         var result = await aiFunction.InvokeAsync(aiFunctionArgs, cancellationToken);

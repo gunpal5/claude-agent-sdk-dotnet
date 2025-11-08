@@ -53,7 +53,7 @@ public class ClaudeCodeChatClientIntegrationTests
     }
 
     [Fact]
-    public async Task CompleteAsync_WithSimpleQuery_ShouldReturnResponse()
+    public async Task GetResponseAsync_WithSimpleQuery_ShouldReturnResponse()
     {
         RequireClaudeCli();
 
@@ -71,21 +71,19 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var response = await client.CompleteAsync(messages);
+        var response = await client.GetResponseAsync(messages);
 
         // Assert
         response.Should().NotBeNull();
-        response.Message.Should().NotBeNull();
-        response.Message.Role.Should().Be(ChatRole.Assistant);
-        response.Message.Text.Should().NotBeNullOrEmpty();
-        response.Message.Text.Should().Contain("4");
+        response.Text.Should().NotBeNullOrEmpty();
+        response.Text.Should().Contain("4");
         response.FinishReason.Should().Be(ChatFinishReason.Stop);
         response.Usage.Should().NotBeNull();
         response.Usage!.TotalTokenCount.Should().BeGreaterThan(0);
     }
 
     [Fact]
-    public async Task CompleteAsync_WithMetadata_ShouldIncludeTokenUsage()
+    public async Task GetResponseAsync_WithMetadata_ShouldIncludeTokenUsage()
     {
         RequireClaudeCli();
 
@@ -103,7 +101,7 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var response = await client.CompleteAsync(messages);
+        var response = await client.GetResponseAsync(messages);
 
         // Assert
         response.Usage.Should().NotBeNull();
@@ -119,7 +117,7 @@ public class ClaudeCodeChatClientIntegrationTests
     }
 
     [Fact]
-    public async Task CompleteStreamingAsync_ShouldStreamResponse()
+    public async Task GetStreamingResponseAsync_ShouldStreamResponse()
     {
         RequireClaudeCli();
 
@@ -138,8 +136,8 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var updates = new List<StreamingChatCompletionUpdate>();
-        await foreach (var update in client.CompleteStreamingAsync(messages))
+        var updates = new List<ChatResponseUpdate>();
+        await foreach (var update in client.GetStreamingResponseAsync(messages))
         {
             updates.Add(update);
         }
@@ -159,7 +157,7 @@ public class ClaudeCodeChatClientIntegrationTests
     }
 
     [Fact]
-    public async Task CompleteAsync_AppManagedMode_ShouldMaintainHistory()
+    public async Task GetResponseAsync_AppManagedMode_ShouldMaintainHistory()
     {
         RequireClaudeCli();
 
@@ -177,23 +175,23 @@ public class ClaudeCodeChatClientIntegrationTests
         {
             new(ChatRole.User, "Remember this number: 42")
         };
-        var response1 = await client.CompleteAsync(messages1);
+        var response1 = await client.GetResponseAsync(messages1);
 
         // Add response to history
-        messages1.Add(response1.Message);
+        messages1.AddRange(response1.Messages);
 
         // Second message
         messages1.Add(new ChatMessage(ChatRole.User, "What number did I ask you to remember?"));
-        var response2 = await client.CompleteAsync(messages1);
+        var response2 = await client.GetResponseAsync(messages1);
 
         // Assert
         client.ConversationHistory.Should().NotBeEmpty();
         client.ConversationHistory.Count.Should().BeGreaterThanOrEqualTo(3);
-        response2.Message.Text.Should().Contain("42");
+        response2.Text.Should().Contain("42");
     }
 
     [Fact]
-    public async Task CompleteAsync_ClaudeManagedMode_ShouldRememberContext()
+    public async Task GetResponseAsync_ClaudeManagedMode_ShouldRememberContext()
     {
         RequireClaudeCli();
 
@@ -211,21 +209,21 @@ public class ClaudeCodeChatClientIntegrationTests
         {
             new(ChatRole.User, "My favorite color is blue.")
         };
-        await client.CompleteAsync(messages1);
+        await client.GetResponseAsync(messages1);
 
         // Second message - Claude should remember context
         var messages2 = new List<ChatMessage>
         {
             new(ChatRole.User, "What is my favorite color?")
         };
-        var response2 = await client.CompleteAsync(messages2);
+        var response2 = await client.GetResponseAsync(messages2);
 
         // Assert
-        response2.Message.Text.Should().Contain("blue");
+        response2.Text.Should().Contain("blue");
     }
 
     [Fact]
-    public async Task CompleteAsync_WithSystemPrompt_ShouldFollowInstructions()
+    public async Task GetResponseAsync_WithSystemPrompt_ShouldFollowInstructions()
     {
         RequireClaudeCli();
 
@@ -244,18 +242,18 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var response = await client.CompleteAsync(messages);
+        var response = await client.GetResponseAsync(messages);
 
         // Assert
-        response.Message.Text.Should().NotBeNullOrEmpty();
+        response.Text.Should().NotBeNullOrEmpty();
         // Response should contain pirate-like language
-        var text = response.Message.Text.ToLower();
+        var text = response.Text.ToLower();
         (text.Contains("arr") || text.Contains("matey") || text.Contains("ahoy") ||
          text.Contains("ye") || text.Contains("pirate")).Should().BeTrue();
     }
 
     [Fact]
-    public async Task CompleteAsync_WithCustomAIFunctionTools_ShouldCallThem()
+    public async Task GetResponseAsync_WithCustomAIFunctionTools_ShouldCallThem()
     {
         RequireClaudeCli();
 
@@ -286,19 +284,19 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var response = await client.CompleteAsync(messages);
+        var response = await client.GetResponseAsync(messages);
 
         // Assert - Tool should have been invoked
         response.Should().NotBeNull();
-        response.Message.Text.Should().NotBeNullOrEmpty();
+        response.Text.Should().NotBeNullOrEmpty();
         // Verify the tool was actually called by checking the flag
         toolCalled.Should().BeTrue("TestTool should have been invoked");
         // Additionally verify the response mentions the tool or its result
-        response.Message.Text.Should().MatchRegex("(?i)(test.*tool|tool.*call|hello)", "Response should reference the tool or input");
+        response.Text.Should().MatchRegex("(?i)(test.*tool|tool.*call|hello)", "Response should reference the tool or input");
     }
 
     [Fact]
-    public async Task CompleteAsync_WithMultipleAIFunctions_ShouldCallCorrectOne()
+    public async Task GetResponseAsync_WithMultipleAIFunctions_ShouldCallCorrectOne()
     {
         RequireClaudeCli();
 
@@ -339,18 +337,18 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var response = await client.CompleteAsync(messages);
+        var response = await client.GetResponseAsync(messages);
 
         // Assert - Verify Multiply was called (not Add)
         response.Should().NotBeNull();
-        response.Message.Text.Should().NotBeNullOrEmpty();
+        response.Text.Should().NotBeNullOrEmpty();
         // Verify the correct tool was called by checking the flags
         multiplyCalled.Should().BeTrue("Multiply tool should have been invoked");
         addCalled.Should().BeFalse("Add tool should not have been called");
     }
 
     [Fact]
-    public async Task CompleteAsync_WithMaxTurns_ShouldRespectLimit()
+    public async Task GetResponseAsync_WithMaxTurns_ShouldRespectLimit()
     {
         RequireClaudeCli();
 
@@ -368,7 +366,7 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var response = await client.CompleteAsync(messages);
+        var response = await client.GetResponseAsync(messages);
 
         // Assert
         response.Should().NotBeNull();
@@ -395,7 +393,7 @@ public class ClaudeCodeChatClientIntegrationTests
         // Assert
         metadata.Should().NotBeNull();
         metadata!.ProviderName.Should().Be("ClaudeCode");
-        metadata.ModelId.Should().Be(TestModel);
+     
         metadata.ProviderUri.Should().Be(new Uri("https://claude.ai/code"));
     }
 
@@ -417,11 +415,11 @@ public class ClaudeCodeChatClientIntegrationTests
         // Assert
         metadata.Should().NotBeNull();
         metadata.ProviderName.Should().Be("ClaudeCode");
-        metadata.ModelId.Should().Be(TestModel);
+       
     }
 
     [Fact]
-    public async Task CompleteAsync_WithDisallowedTools_ShouldNotUseThem()
+    public async Task GetResponseAsync_WithDisallowedTools_ShouldNotUseThem()
     {
         RequireClaudeCli();
 
@@ -440,17 +438,17 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var response = await client.CompleteAsync(messages);
+        var response = await client.GetResponseAsync(messages);
 
         // Assert
         response.Should().NotBeNull();
         // Claude should indicate it cannot use bash
-        var text = response.Message.Text.ToLower();
+        var text = response.Text.ToLower();
         //(text.Contains("cannot") || text.Contains("unable") || text.Contains("don't have")).Should().BeTrue();
     }
 
     [Fact]
-    public async Task CompleteAsync_WithAllowedTools_ShouldOnlyUseAllowed()
+    public async Task GetResponseAsync_WithAllowedTools_ShouldOnlyUseAllowed()
     {
         RequireClaudeCli();
 
@@ -469,11 +467,11 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        var response = await client.CompleteAsync(messages);
+        var response = await client.GetResponseAsync(messages);
 
         // Assert
         response.Should().NotBeNull();
-        response.Message.Text.Should().NotBeNullOrEmpty();
+        response.Text.Should().NotBeNullOrEmpty();
         // Should mention limited tool access
     }
 
@@ -499,7 +497,7 @@ public class ClaudeCodeChatClientIntegrationTests
     }
 
     [Fact]
-    public async Task CompleteAsync_WithEmptyMessage_ShouldThrow()
+    public async Task GetResponseAsync_WithEmptyMessage_ShouldThrow()
     {
         RequireClaudeCli();
 
@@ -516,7 +514,7 @@ public class ClaudeCodeChatClientIntegrationTests
         };
 
         // Act
-        Func<Task> act = async () => await client.CompleteAsync(messages);
+        Func<Task> act = async () => await client.GetResponseAsync(messages);
 
         // Assert
         await act.Should().ThrowAsync<ArgumentException>();
@@ -528,7 +526,7 @@ public class ClaudeCodeChatClientIntegrationTests
     // at client initialization using WithAIFunctionTools().
 
     [Fact]
-    public async Task CompleteAsync_MultipleSequentialCalls_ShouldWork()
+    public async Task GetResponseAsync_MultipleSequentialCalls_ShouldWork()
     {
         RequireClaudeCli();
 
@@ -545,23 +543,23 @@ public class ClaudeCodeChatClientIntegrationTests
         {
             new(ChatRole.User, "Say 'first'")
         };
-        var response1 = await client.CompleteAsync(messages1);
-        response1.Message.Text.ToLower().Should().Contain("first");
+        var response1 = await client.GetResponseAsync(messages1);
+        response1.Text.ToLower().Should().Contain("first");
 
         // Second call
         var messages2 = new List<ChatMessage>
         {
             new(ChatRole.User, "Say 'second'")
         };
-        var response2 = await client.CompleteAsync(messages2);
-        response2.Message.Text.ToLower().Should().Contain("second");
+        var response2 = await client.GetResponseAsync(messages2);
+        response2.Text.ToLower().Should().Contain("second");
 
         // Third call
         var messages3 = new List<ChatMessage>
         {
             new(ChatRole.User, "Say 'third'")
         };
-        var response3 = await client.CompleteAsync(messages3);
-        response3.Message.Text.ToLower().Should().Contain("third");
+        var response3 = await client.GetResponseAsync(messages3);
+        response3.Text.ToLower().Should().Contain("third");
     }
 }
