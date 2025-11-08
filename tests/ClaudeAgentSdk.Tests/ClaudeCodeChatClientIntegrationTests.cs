@@ -1,7 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 using System.Diagnostics;
-using Xunit;
 
 namespace ClaudeAgentSdk.Tests;
 
@@ -49,7 +48,7 @@ public class ClaudeCodeChatClientIntegrationTests
     {
         if (!IsClaudeCliAvailable())
         {
-            throw new SkipException("Claude CLI is not installed or not accessible in PATH");
+            Assert.Skip("Claude CLI is not installed or not accessible in PATH");
         }
     }
 
@@ -522,6 +521,11 @@ public class ClaudeCodeChatClientIntegrationTests
         // Assert
         await act.Should().ThrowAsync<ArgumentException>();
     }
+
+    // NOTE: ChatOptions.Tools is currently NOT supported with Claude Code CLI
+    // because the CLI process is started with a fixed set of tools and cannot
+    // dynamically register new tools after startup. All tools must be configured
+    // at client initialization using WithAIFunctionTools().
 
     [Fact]
     public async Task CompleteAsync_MultipleSequentialCalls_ShouldWork()

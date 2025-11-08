@@ -193,6 +193,7 @@ public class McpInputSchema
 public class DynamicAIFunctionMcpServer
 {
     private readonly Dictionary<string, AIFunction> _toolsByName;
+    private readonly object _lock = new();
 
     /// <summary>
     /// Creates a new dynamic MCP server for the specified AIFunctions.
@@ -207,13 +208,83 @@ public class DynamicAIFunctionMcpServer
     }
 
     /// <summary>
+    /// Adds an AIFunction to the available tools.
+    /// </summary>
+    /// <param name="aiFunction">The AI function to add.</param>
+    public void AddTool(AIFunction aiFunction)
+    {
+        if (aiFunction == null)
+            throw new ArgumentNullException(nameof(aiFunction));
+
+        lock (_lock)
+        {
+            _toolsByName[aiFunction.Metadata.Name] = aiFunction;
+        }
+    }
+
+    /// <summary>
+    /// Adds multiple AIFunctions to the available tools.
+    /// </summary>
+    /// <param name="aiFunctions">The AI functions to add.</param>
+    public void AddTools(IEnumerable<AIFunction> aiFunctions)
+    {
+        if (aiFunctions == null)
+            throw new ArgumentNullException(nameof(aiFunctions));
+
+        lock (_lock)
+        {
+            foreach (var func in aiFunctions)
+            {
+                _toolsByName[func.Metadata.Name] = func;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Removes an AIFunction from the available tools.
+    /// </summary>
+    /// <param name="toolName">The name of the tool to remove.</param>
+    /// <returns>True if the tool was removed, false if it didn't exist.</returns>
+    public bool RemoveTool(string toolName)
+    {
+        lock (_lock)
+        {
+            return _toolsByName.Remove(toolName);
+        }
+    }
+
+    /// <summary>
+    /// Removes multiple AIFunctions from the available tools.
+    /// </summary>
+    /// <param name="toolNames">The names of the tools to remove.</param>
+    public void RemoveTools(IEnumerable<string> toolNames)
+    {
+        if (toolNames == null)
+            throw new ArgumentNullException(nameof(toolNames));
+
+        lock (_lock)
+        {
+            foreach (var name in toolNames)
+            {
+                _toolsByName.Remove(name);
+            }
+        }
+    }
+
+    /// <summary>
     /// Lists all available AI functions as MCP tools.
     /// Implements the MCP tools/list protocol method.
     /// </summary>
     /// <returns>List of all available tools with their schemas.</returns>
     public Task<McpToolListResponse> ListToolsAsync()
     {
-        var tools = _toolsByName.Values
+        List<AIFunction> functionsCopy;
+        lock (_lock)
+        {
+            functionsCopy = _toolsByName.Values.ToList();
+        }
+
+        var tools = functionsCopy
             .Select(f => AIFunctionMcpConverter.ConvertToMcpToolSchema(f))
             .ToList();
 
@@ -236,9 +307,13 @@ public class DynamicAIFunctionMcpServer
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Tool name cannot be null or empty", nameof(name));
 
-        if (!_toolsByName.TryGetValue(name, out var aiFunction))
+        AIFunction? aiFunction;
+        lock (_lock)
         {
-            throw new InvalidOperationException($"Tool '{name}' not found");
+            if (!_toolsByName.TryGetValue(name, out aiFunction))
+            {
+                throw new InvalidOperationException($"Tool '{name}' not found");
+            }
         }
 
         // Convert JsonElement arguments to AIFunctionArguments

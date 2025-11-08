@@ -97,6 +97,7 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
     private readonly string _sessionId;
     private readonly ChatClientMetadata _metadata;
     private bool _isConnected;
+    private DynamicAIFunctionMcpServer? _mcpServer;
 
     /// <summary>
     /// Creates a new ClaudeCodeChatClient with the specified options.
@@ -111,6 +112,19 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
             providerName: "ClaudeCode",
             providerUri: new Uri("https://claude.ai/code"),
             modelId: _options.Model ?? "claude-sonnet-4");
+
+        // Capture the MCP server instance if present for dynamic tool management
+        if (_options.McpServers != null)
+        {
+            foreach (var server in _options.McpServers.Values)
+            {
+                if (server is McpSdkServerConfig sdkConfig && sdkConfig.Instance is DynamicAIFunctionMcpServer mcpServer)
+                {
+                    _mcpServer = mcpServer;
+                    break; // Use the first DynamicAIFunctionMcpServer found
+                }
+            }
+        }
 
         var sdkOptions = new ClaudeAgentOptions
         {
@@ -181,27 +195,46 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
     {
         await EnsureConnectedAsync(cancellationToken);
 
-        // Store messages in history if app-managed
-        if (_options.ConversationMode == ConversationMode.AppManaged)
+        // Handle per-request tools from ChatOptions
+        // NOTE: Per-request tools are currently NOT supported with Claude Code CLI.
+        // The CLI process is started once with a fixed set of tools, and dynamically adding
+        // tools after startup is not possible. Tools must be configured at the client level
+        // using ClaudeCodeChatClientOptions.WithAIFunctionTools().
+        //
+        // This code is kept for potential future support when/if Claude CLI allows dynamic
+        // tool registration, but for now it will not work as expected.
+        List<string>? addedToolNames = null;
+        if (options?.Tools != null && options.Tools.Count > 0)
         {
-            foreach (var msg in chatMessages)
+            // Warn that this is not currently supported
+            Console.WriteLine("[WARNING] ChatOptions.Tools is not currently supported with Claude Code CLI. " +
+                            "Tools must be configured at client initialization using WithAIFunctionTools(). " +
+                            "Per-request tools will be ignored.");
+        }
+
+        try
+        {
+            // Store messages in history if app-managed
+            if (_options.ConversationMode == ConversationMode.AppManaged)
             {
-                if (!_conversationHistory.Any(h => h.Text == msg.Text && h.Role == msg.Role))
+                foreach (var msg in chatMessages)
                 {
-                    _conversationHistory.Add(msg);
+                    if (!_conversationHistory.Any(h => h.Text == msg.Text && h.Role == h.Role))
+                    {
+                        _conversationHistory.Add(msg);
+                    }
                 }
             }
-        }
 
-        // Get the latest user message
-        var lastMessage = chatMessages.LastOrDefault(m => m.Role == ChatRole.User);
-        if (lastMessage?.Text is not { } prompt)
-        {
-            throw new ArgumentException("No user message found in chat messages");
-        }
+            // Get the latest user message
+            var lastMessage = chatMessages.LastOrDefault(m => m.Role == ChatRole.User);
+            if (lastMessage?.Text is not { } prompt)
+            {
+                throw new ArgumentException("No user message found in chat messages");
+            }
 
-        // Send query to Claude Code
-        await _client.QueryAsync(prompt, _sessionId, cancellationToken);
+            // Send query to Claude Code
+            await _client.QueryAsync(prompt, _sessionId, cancellationToken);
 
         // Collect response
         var assistantContents = new List<AIContent>();
@@ -256,23 +289,32 @@ public class ClaudeCodeChatClient : IChatClient, IAsyncDisposable
             }
         }
 
-        var assistantMessage = new ChatMessage(ChatRole.Assistant, assistantContents);
+            var assistantMessage = new ChatMessage(ChatRole.Assistant, assistantContents);
 
-        // Store assistant response in history if app-managed
-        if (_options.ConversationMode == ConversationMode.AppManaged)
-        {
-            _conversationHistory.Add(assistantMessage);
+            // Store assistant response in history if app-managed
+            if (_options.ConversationMode == ConversationMode.AppManaged)
+            {
+                _conversationHistory.Add(assistantMessage);
+            }
+
+            return new ChatCompletion(assistantMessage)
+            {
+                CompletionId = Guid.NewGuid().ToString(),
+                CreatedAt = DateTimeOffset.UtcNow,
+                ModelId = modelId,
+                FinishReason = finishReason,
+                Usage = usage,
+                AdditionalProperties = additionalProps
+            };
         }
-
-        return new ChatCompletion(assistantMessage)
+        finally
         {
-            CompletionId = Guid.NewGuid().ToString(),
-            CreatedAt = DateTimeOffset.UtcNow,
-            ModelId = modelId,
-            FinishReason = finishReason,
-            Usage = usage,
-            AdditionalProperties = additionalProps
-        };
+            // Clean up per-request tools
+            if (addedToolNames != null && addedToolNames.Count > 0 && _mcpServer != null)
+            {
+                _mcpServer.RemoveTools(addedToolNames);
+            }
+        }
     }
 
     /// <summary>

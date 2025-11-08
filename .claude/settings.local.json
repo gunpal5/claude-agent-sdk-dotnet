@@ -5,7 +5,8 @@
       "WebSearch",
       "Bash(dotnet build:*)",
       "Bash(dotnet test:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(dotnet remove:*)"
     ],
     "deny": [],
     "ask": []
